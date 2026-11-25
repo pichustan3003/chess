@@ -1,28 +1,135 @@
+using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class board : MonoBehaviour
 {
     GameObject rank;
     GameObject square;
+    public GameObject menu;
+
     public List<square> squares = new();
     public square currentSelected = null;
     public bool forcePromotion = false;
     public piece lastMoved = null;
     public int enPassantTarget = -1;
     public GameObject promogrid;
-    public int turn = 1;
+    public int turn = -1;
+    public Canvas canvas;
+    public TMP_Text winner;
+    [SerializeField]
+    public Dictionary<string, bool> settings = new();
+    public TMP_Text titleTxt;
+    public bool possibleCapture = false;
 
-    public void switchTurn()
-    {
-        turn *= -1;
-    }
     void Start()
     {
+        readCheckboxes();
+    }
+    public void switchTurn()
+    {
+        possibleCapture = false;
+        turn *= -1;
+        if (isCheck(turn))
+        {
+            piece king = null;
+            foreach (square sq in squares)
+            {
+                if (sq.piece != null)
+                {
+                    if (sq.piece.pieceType == "K" && sq.piece.color == turn)
+                    {
+                        king = sq.piece;
+                        break;
+                    }
+                }
+            }
+            king.location.makeRed();
+            if (IsCheckmate(turn))
+            {
+                Debug.Log("Checkmate against "+turn);
+                winner.text = turn == -1 ? "White Wins" : "Black Wins";
+                winner.gameObject.SetActive(true);
+            }
+        }
+        else
+        {
+            piece king = null;
+            foreach (square sq in squares)
+            {
+                if (sq.piece != null)
+                {
+                    if (sq.piece.pieceType == "K" && sq.piece.color == -turn)
+                    {
+                        king = sq.piece;
+                        break;
+                    }
+                }
+            }
+            king.location.makeNormal();
+        }
+        if (settings["giveaway"])
+        {
+            foreach (square sq in squares)
+            {
+                if (sq.piece != null)
+                {
+                    if (sq.piece.color == turn)
+                    {
+                        if (sq.piece.returnIndexOfTheoreticalCaptures().Count != 0)
+                        {
+                            possibleCapture = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    public void readCheckboxes()
+    {
+        foreach (Toggle check in canvas.GetComponentsInChildren<Toggle>())
+        {
+            settings[check.gameObject.name] = check.isOn;
+        }
+        string runningTitle = "";
+        foreach (String key in settings.Keys)
+        {
+            if (settings[key])
+            {
+                runningTitle += key + " ";
+            }
+        }
+        runningTitle += "Chess";
+        titleTxt.text = runningTitle;
+    }
+    public void beginGame()
+    {
         rank = Resources.Load<GameObject>("Prefabs/Rank");
+        menu.SetActive(false);
         createBoard();
         fillBoardByDefault();
+        switchTurn();
+    }
+    public bool IsCheckmate(int color)
+    {
+        foreach (square sq in squares)
+        {
+            if (sq.piece != null)
+            {
+                if (sq.piece.color == -color) continue;
+                List<int> theoryMoves = new();
+                theoryMoves.AddRange(sq.piece.returnIndexOfTheoreticalCaptures());
+                theoryMoves.AddRange(sq.piece.returnIndexOfTheoreticalMoves());
+                if (theoryMoves.Count != 0)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
     public bool isCheck(int color)
     {
@@ -38,7 +145,6 @@ public class board : MonoBehaviour
                 }
             }
         }
-        Debug.Log("Captures at " + plausibleCaptures);
         foreach (int c in plausibleCaptures)
         {
             if (squares[c].piece == null) continue;
@@ -155,6 +261,10 @@ public class board : MonoBehaviour
     }
     public void displayMoveOnOverlayAtIndex(int index)
     {
+        if (settings["giveaway"] && possibleCapture)
+        {
+            return;
+        }
         squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/move");
         squares[index].overlay.GetComponent<overlay>().moveSq = true;
     }

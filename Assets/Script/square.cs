@@ -10,6 +10,8 @@ public class square : MonoBehaviour
     public GameObject overlay;
     public board parent;
     public piece piece = null;
+    Color white = new Color(0.451f, 0.584f, 0.322f);
+    Color black = new Color(0.922f, 0.926f, 0.816f);
     void Start()
     {
         overlayPrefab = Resources.Load<GameObject>("Prefabs/Overlay");
@@ -20,7 +22,19 @@ public class square : MonoBehaviour
     }
     public void color()
     {
-        gameObject.GetComponent<SpriteRenderer>().color = (rank+file) % 2 == 0 ? new Color(0.451f, 0.584f, 0.322f) : new Color(0.922f, 0.926f, 0.816f);
+        gameObject.GetComponent<SpriteRenderer>().color = (rank+file) % 2 == 0 ?  white : black;
+    }
+    public void makeRed()
+    {
+        white = new Color(0.949f, 0.129f, 0.227f);
+        black = white;
+        color();
+    }
+    public void makeNormal()
+    {
+        white = new Color(0.451f, 0.584f, 0.322f);
+        black = new Color(0.922f, 0.926f, 0.816f);
+        color();
     }
     public void RecolourAsSelected()
     {

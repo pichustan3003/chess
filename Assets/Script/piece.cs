@@ -92,9 +92,6 @@ public class piece : MonoBehaviour
             };
             foreach (int[] perm in permutations)
             {
-                Debug.Log($"File: {file}, Rank: {rank}");
-                Debug.Log($"Permutation: {perm[0]}, {perm[1]}");
-                Debug.Log($"Result: {file + perm[0]}, {rank + perm[1]}");
                 if (file + perm[0] < 0 || file + perm[0] > 7 ||
                 rank + perm[1] < 0 || rank + perm[1] > 7) continue;
                 if (!board.isOccupied(file+perm[0], rank + perm[1]))
@@ -409,6 +406,7 @@ public class piece : MonoBehaviour
             }
         }
         location.piece = null;
+        location.makeNormal();
         location = destination;
         location.piece = this;
         moved = true;
@@ -418,7 +416,6 @@ public class piece : MonoBehaviour
         {
             location.parent.beginPromotionProcess();
         }
-        Debug.Log(pieceType + location.rank + location.file + file + color);
         parentBoard.enPassantTarget = -1;
         if (pieceType == "P" &&
             previousLocation.rank == (color == 1 ? 1 : 6) &&
@@ -428,8 +425,6 @@ public class piece : MonoBehaviour
                 ((rank + previousLocation.rank) / 2) * 8 + file;
         }
         location.parent.lastMoved = this;
-        Debug.Log(location.parent.isCheck(1) ? "White is in check" : "White is not in check");
-        Debug.Log(location.parent.isCheck(-1) ? "Black is in check" : "Black is not in check");
         if (dontSwitch) return;
         location.parent.switchTurn();
     }
@@ -452,7 +447,6 @@ public class piece : MonoBehaviour
         piece replaced = location.piece;
         location.piece = this;
         bool legal = location.parent.isCheck(color);
-        Debug.Log(legal ? "Illegal" : "Legal");
         location.piece = replaced;
         location = stored;
         location.piece = this;
@@ -460,7 +454,6 @@ public class piece : MonoBehaviour
         {
             enPassantCapturedSquare.piece = enPassantCaptured;
         }
-        Debug.Log("Simulating" + pieceType + " Move to " + index + " which is " + (legal ? "Illegal" : "Legal"));
         return legal;
     }
     List<int> permutate(int[][] permutations)
