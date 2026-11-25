@@ -33,7 +33,8 @@ public class piece : MonoBehaviour
             }
             else
             {
-                if (!moved && ! board.isOccupied((rank+(2*color))*8+file))
+                if (!moved && rank == (color == 1 ? 1 : 6) &&
+                    !board.isOccupied((rank+(2*color))*8+file))
                 {
                     moves.Add((rank+(2*color))*8+file);
                 }
@@ -124,6 +125,66 @@ public class piece : MonoBehaviour
                     moves.Add(file+perm[0] + (rank + perm[1])*8);
                 }
             }
+            // as white
+            if (color == 1)
+            {
+                if (board.isOccupied(4) && board.isOccupied(7))
+                {
+                    if (!board.getSquareFromIndex(4).piece.moved && !board.getSquareFromIndex(7).piece.moved)
+                    {  
+                        if (!board.isOccupied(5) && !board.isOccupied(6))
+                        {
+                            if (!simulateMove(5) && !simulateMove(6))
+                            {
+                                moves.Add(6);
+                            }
+                        }  
+                    }
+                }
+                if (board.isOccupied(4) && board.isOccupied(0))
+                {
+                    if (!board.getSquareFromIndex(4).piece.moved && !board.getSquareFromIndex(0).piece.moved)
+                    {  
+                        if (!board.isOccupied(2) && !board.isOccupied(3))
+                        {
+                            if (!simulateMove(3) && !simulateMove(2))
+                            {
+                                moves.Add(2);
+                            }
+                        }  
+                    }
+                }
+            }
+            else
+            {
+                if (board.isOccupied(60) && board.isOccupied(63))
+                {
+                    if (!board.getSquareFromIndex(60).piece.moved && !board.getSquareFromIndex(63).piece.moved)
+                    {  
+                        if (!board.isOccupied(61) && !board.isOccupied(62))
+                        {
+                            if (!simulateMove(61) && !simulateMove(62))
+                            {
+                                moves.Add(62);
+                            }
+                        }  
+                    }
+                }
+                if (board.isOccupied(60) && board.isOccupied(56))
+                {
+                    if (!board.getSquareFromIndex(60).piece.moved && !board.getSquareFromIndex(56).piece.moved)
+                    {  
+                        if (!board.isOccupied(58) && !board.isOccupied(59))
+                        {
+                            if (!simulateMove(59) && !simulateMove(58))
+                            {
+                                moves.Add(58);
+                            }
+                        }  
+                    }
+                }
+            }
+
         }
         List<int> safe = new List<int>();
         foreach (int mv in moves)
@@ -147,11 +208,11 @@ public class piece : MonoBehaviour
             {
                 return new List<int>();
             }
-            if (file != 7){
+            if (file < 7){
                 moves.Add((rank+(1*color))*8+file+1);
             }
-            if (file != 1){
-            moves.Add((rank+(1*color))*8+file-1);
+            if (file > 0){
+                moves.Add((rank+(1*color))*8+file-1);
             }
             foreach (int move in moves)
             {
@@ -161,6 +222,22 @@ public class piece : MonoBehaviour
                     {
                         safe.Add(move);
                     }
+                }
+            }
+            int enPassantRank = rank + color;
+            if (board.enPassantTarget >= 0 &&
+                enPassantRank >= 0 && enPassantRank <= 7 &&
+                board.enPassantTarget / 8 == enPassantRank &&
+                Mathf.Abs(board.enPassantTarget % 8 - file) == 1 &&
+                !board.isOccupied(board.enPassantTarget))
+            {
+                square adjacent = board.getSquareFromCoord(board.enPassantTarget % 8, rank);
+                if (adjacent.piece != null &&
+                    adjacent.piece.pieceType == "P" &&
+                    adjacent.piece.color == -color &&
+                    board.lastMoved == adjacent.piece)
+                {
+                    safe.Add(board.enPassantTarget);
                 }
             }
         }
@@ -264,10 +341,75 @@ public class piece : MonoBehaviour
         }
         return safe;
     }
-    public void move(int file, int rank)
+    public void move(int file, int rank, bool dontSwitch = false)
     {
+        board parentBoard = location.parent;
+        square previousLocation = location;
+        square destination = parentBoard.getSquareFromCoord(file, rank);
+        piece enPassantCaptured = null;
+        square enPassantCapturedSquare = null;
+        if (pieceType == "P" && destination.piece == null &&
+            file != previousLocation.file &&
+            parentBoard.enPassantTarget == rank * 8 + file)
+        {
+            enPassantCapturedSquare = parentBoard.getSquareFromCoord(file, previousLocation.rank);
+            enPassantCaptured = enPassantCapturedSquare.piece;
+            if (enPassantCaptured != null &&
+                enPassantCaptured.pieceType == "P" &&
+                enPassantCaptured.color == -color &&
+                parentBoard.lastMoved == enPassantCaptured)
+            {
+                enPassantCapturedSquare.piece = null;
+                Destroy(enPassantCaptured.gameObject);
+            }
+            else
+            {
+                enPassantCaptured = null;
+                enPassantCapturedSquare = null;
+            }
+        }
+        if (pieceType == "K" && location.rank == 0 && location.file == 4 && file == 6 && color == 1)
+        {
+            if (location.parent.getSquareFromIndex(7).piece != null){
+                location.parent.getSquareFromIndex(7).piece.move(5,0,true);
+            }
+            else
+            {
+                throw new Exception("Cannot short cancel");
+            }
+        }
+        if (pieceType == "K" && location.rank == 0 && location.file == 4 && file == 2 && color == 1)
+        {
+            if (location.parent.getSquareFromIndex(0).piece != null){
+                location.parent.getSquareFromIndex(0).piece.move(3,0,true);
+            }
+            else
+            {
+                throw new Exception("Cannot long cancel");
+            }
+        }
+        if (pieceType == "K" && location.rank == 7 && location.file == 4 && file == 6 && color == -1)
+        {
+            if (location.parent.getSquareFromIndex(63).piece != null){
+                location.parent.getSquareFromIndex(63).piece.move(61,0,true);
+            }
+            else
+            {
+                throw new Exception("Cannot short cancel");
+            }
+        }
+        if (pieceType == "K" && location.rank == 7 && location.file == 4 && file == 2 && color == -1)
+        {
+            if (location.parent.getSquareFromIndex(56).piece != null){
+                location.parent.getSquareFromIndex(56).piece.move(59,0,true);
+            }
+            else
+            {
+                throw new Exception("Cannot long cancel");
+            }
+        }
         location.piece = null;
-        location = location.parent.getSquareFromCoord(file, rank);
+        location = destination;
         location.piece = this;
         moved = true;
         transform.position = new Vector3(location.transform.position.x, location.transform.position.y, -1);
@@ -276,16 +418,37 @@ public class piece : MonoBehaviour
         {
             location.parent.beginPromotionProcess();
         }
+        Debug.Log(pieceType + location.rank + location.file + file + color);
+        parentBoard.enPassantTarget = -1;
+        if (pieceType == "P" &&
+            previousLocation.rank == (color == 1 ? 1 : 6) &&
+            Mathf.Abs(rank - previousLocation.rank) == 2)
+        {
+            parentBoard.enPassantTarget =
+                ((rank + previousLocation.rank) / 2) * 8 + file;
+        }
         location.parent.lastMoved = this;
         Debug.Log(location.parent.isCheck(1) ? "White is in check" : "White is not in check");
         Debug.Log(location.parent.isCheck(-1) ? "Black is in check" : "Black is not in check");
+        if (dontSwitch) return;
         location.parent.switchTurn();
     }
     bool simulateMove(int index)
     {
         square stored = location;
+        square destination = location.parent.getSquareFromIndex(index);
+        square enPassantCapturedSquare = null;
+        piece enPassantCaptured = null;
+        if (pieceType == "P" && index == location.parent.enPassantTarget &&
+            destination.piece == null && index % 8 != location.file)
+        {
+            enPassantCapturedSquare = location.parent.getSquareFromCoord(
+                index % 8, location.rank);
+            enPassantCaptured = enPassantCapturedSquare.piece;
+            enPassantCapturedSquare.piece = null;
+        }
         location.piece = null;
-        location = location.parent.getSquareFromIndex(index);
+        location = destination;
         piece replaced = location.piece;
         location.piece = this;
         bool legal = location.parent.isCheck(color);
@@ -293,6 +456,10 @@ public class piece : MonoBehaviour
         location.piece = replaced;
         location = stored;
         location.piece = this;
+        if (enPassantCapturedSquare != null)
+        {
+            enPassantCapturedSquare.piece = enPassantCaptured;
+        }
         Debug.Log("Simulating" + pieceType + " Move to " + index + " which is " + (legal ? "Illegal" : "Legal"));
         return legal;
     }

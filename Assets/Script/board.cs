@@ -10,6 +10,7 @@ public class board : MonoBehaviour
     public square currentSelected = null;
     public bool forcePromotion = false;
     public piece lastMoved = null;
+    public int enPassantTarget = -1;
     public GameObject promogrid;
     public int turn = 1;
 

@@ -19,7 +19,10 @@ public class overlay : MonoBehaviour
         }
         if (captureSq)
         {
-            Destroy(parent.piece.gameObject);
+            if (parent.piece != null)
+            {
+                Destroy(parent.piece.gameObject);
+            }
             square current = parent.parent.currentSelected;
             current.overlay.GetComponent<overlay>().deselect();
             current.piece.move(parent.file, parent.rank);
