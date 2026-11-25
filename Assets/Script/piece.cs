@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEditor.SettingsManagement;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.UI;
@@ -434,28 +435,39 @@ public class piece : MonoBehaviour
         square destination = location.parent.getSquareFromIndex(index);
         square enPassantCapturedSquare = null;
         piece enPassantCaptured = null;
-        if (pieceType == "P" && index == location.parent.enPassantTarget &&
-            destination.piece == null && index % 8 != location.file)
+
+        if (pieceType == "P" &&
+            index == location.parent.enPassantTarget &&
+            destination.piece == null &&
+            index % 8 != location.file)
         {
             enPassantCapturedSquare = location.parent.getSquareFromCoord(
                 index % 8, location.rank);
+
             enPassantCaptured = enPassantCapturedSquare.piece;
             enPassantCapturedSquare.piece = null;
         }
+
         location.piece = null;
         location = destination;
+
         piece replaced = location.piece;
         location.piece = this;
+
         bool legal = location.parent.isCheck(color);
+
         location.piece = replaced;
         location = stored;
         location.piece = this;
+
         if (enPassantCapturedSquare != null)
         {
             enPassantCapturedSquare.piece = enPassantCaptured;
         }
+
         return legal;
     }
+
     List<int> permutate(int[][] permutations)
     {
         board board = location.parent;

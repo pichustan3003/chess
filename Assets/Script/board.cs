@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
 using TMPro;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -25,6 +26,9 @@ public class board : MonoBehaviour
     public TMP_Text titleTxt;
     public bool possibleCapture = false;
 
+    public int checkCountWhite = 0;
+    public int checkCountBlack = 0;
+
     void Start()
     {
         readCheckboxes();
@@ -35,6 +39,8 @@ public class board : MonoBehaviour
         turn *= -1;
         if (isCheck(turn))
         {
+            checkCountBlack += turn == 1 ? 1 : 0;
+            checkCountWhite += turn == -1 ? 1 : 0;
             piece king = null;
             foreach (square sq in squares)
             {
@@ -47,11 +53,12 @@ public class board : MonoBehaviour
                     }
                 }
             }
-            king.location.makeRed();
+            if (king != null) king.location.makeRed();
             if (IsCheckmate(turn))
             {
                 Debug.Log("Checkmate against "+turn);
-                winner.text = turn == -1 ? "White Wins" : "Black Wins";
+                winner.text = turn == -1 ? "WHITE WINS" : "BLACK WINS";
+                winProtocol();
                 winner.gameObject.SetActive(true);
             }
         }
@@ -69,7 +76,19 @@ public class board : MonoBehaviour
                     }
                 }
             }
-            king.location.makeNormal();
+
+            if (king != null) king.location.makeNormal();
+            if (IsStalemate(turn))
+            {
+                winner.text = "Stalemate";
+                winProtocol();
+                if (settings["giveaway"])
+                {
+                    winner.text = turn == 1 ? "WHITE WINS" : "BLACK WINS";
+                    winProtocol();
+                }
+                winner.gameObject.SetActive(true);
+            }
         }
         if (settings["giveaway"])
         {
@@ -87,12 +106,81 @@ public class board : MonoBehaviour
                 }
             }
         }
+        if (settings["3check"]){
+            if (checkCountWhite >= 3)
+            {
+                winner.text = "WHITE WINS";
+                winner.gameObject.SetActive(true);
+                winProtocol();
+            }
+            else if (checkCountBlack >= 3)
+            {
+                winner.text = "BLACK WINS";
+                winner.gameObject.SetActive(true);
+                winProtocol();
+            }
+        }
+        if (settings["atomic"]) atomicWin();  
+    }
+    void atomicWin()
+    {
+        piece Wking = null;
+        foreach (square sq in squares)
+        {
+            if (sq.piece != null)
+            {
+                if (sq.piece.pieceType == "K" && sq.piece.color == 1)
+                {
+                    Wking = sq.piece;
+                    break;
+                }
+            }
+        }
+        piece Bking = null;
+        foreach (square sq in squares)
+        {
+            if (sq.piece != null)
+            {
+                if (sq.piece.pieceType == "K" && sq.piece.color == -1)
+                {
+                    Bking = sq.piece;
+                    break;
+                }
+            }
+        }
+        if (Wking == null && Bking == null)
+        {
+            winner.text = "DRAW";
+        }
+        else if (Bking == null)
+        {
+            winner.text = "WHITE WINS";
+        }
+        else if (Wking == null)
+        {
+            winner.text = "BLACK WINS";
+        }
+        else
+        {
+            return;
+        }
+        winner.gameObject.SetActive(true);
+        winProtocol();
+    }
+    void winProtocol()
+    {
+        turn = 0;
     }
     public void readCheckboxes()
     {
+        List<string> condtradicts = new ();
         foreach (Toggle check in canvas.GetComponentsInChildren<Toggle>())
         {
             settings[check.gameObject.name] = check.isOn;
+            if (check.isOn)
+            {
+                condtradicts.AddRange(check.gameObject.GetComponent<modeCheck>().contradicts);
+            }
         }
         string runningTitle = "";
         foreach (String key in settings.Keys)
@@ -104,6 +192,23 @@ public class board : MonoBehaviour
         }
         runningTitle += "Chess";
         titleTxt.text = runningTitle;
+        foreach (Toggle check in canvas.GetComponentsInChildren<Toggle>())
+        {
+            if (condtradicts.Contains(check.gameObject.name))
+            {
+                check.enabled = false;
+                ColorBlock newColors = check.colors;
+                newColors.normalColor = new Color(0.5f, 0.5f, 0.5f);
+                check.colors = newColors;
+            }
+            else
+            {
+                check.enabled = true;
+                ColorBlock newColors = check.colors;
+                newColors.normalColor = new Color(1,1,1);
+                check.colors = newColors;
+            }
+        }
     }
     public void beginGame()
     {
@@ -115,6 +220,26 @@ public class board : MonoBehaviour
     }
     public bool IsCheckmate(int color)
     {
+        if (!isCheck(color)) return false;
+        foreach (square sq in squares)
+        {
+            if (sq.piece != null)
+            {
+                if (sq.piece.color == -color) continue;
+                List<int> theoryMoves = new();
+                theoryMoves.AddRange(sq.piece.returnIndexOfTheoreticalCaptures());
+                theoryMoves.AddRange(sq.piece.returnIndexOfTheoreticalMoves());
+                if (theoryMoves.Count != 0)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    public bool IsStalemate(int color)
+    {
+        if (isCheck(color)) return false;
         foreach (square sq in squares)
         {
             if (sq.piece != null)
@@ -133,6 +258,7 @@ public class board : MonoBehaviour
     }
     public bool isCheck(int color)
     {
+        if (settings["giveaway"]) return false;
         List<int> plausibleCaptures = new();
         color = -color;
         foreach (square sq in squares)
