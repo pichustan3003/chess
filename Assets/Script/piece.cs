@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.UI;
 
 public class piece : MonoBehaviour
 {
@@ -101,9 +102,40 @@ public class piece : MonoBehaviour
                 }
             }
         }
-        return moves;
+        else if (pieceType == "K")
+        {
+            int[][] permutations =
+            {
+                new[] { 1, 1 },
+                new[] { 1, -1 },
+                new[] { -1, 1 },
+                new[] { -1, -1 },
+                new[] { 0, 1 },
+                new[] { 1, 0 },
+                new[] { -1, 0 },
+                new[] { 0, -1 }
+            };
+            foreach (int[] perm in permutations)
+            {
+                if (file + perm[0] < 0 || file + perm[0] > 7 ||
+                rank + perm[1] < 0 || rank + perm[1] > 7) continue;
+                if (!board.isOccupied(file+perm[0], rank + perm[1]))
+                {
+                    moves.Add(file+perm[0] + (rank + perm[1])*8);
+                }
+            }
+        }
+        List<int> safe = new List<int>();
+        foreach (int mv in moves)
+        {
+            if (!simulateMove(mv))
+            {
+                safe.Add(mv);
+            }
+        }
+        return safe;
     }
-    public List<int> returnIndexOfTheoreticalCaptures()
+    public List<int> returnIndexOfTheoreticalCaptures(bool ignoreCheck = false)
     {
         int file = location.file;
         int rank = location.rank;
@@ -194,6 +226,42 @@ public class piece : MonoBehaviour
                 }
             }
         }
+        else if (pieceType == "K")
+        {
+            int[][] permutations =
+            {
+                new[] { 1, 1 },
+                new[] { 1, -1 },
+                new[] { -1, 1 },
+                new[] { -1, -1 },
+                new[] { 0, 1 },
+                new[] { 1, 0 },
+                new[] { -1, 0 },
+                new[] { 0, -1 }
+            };
+            foreach (int[] perm in permutations)
+            {
+                if (file + perm[0] < 0 || file + perm[0] > 7 ||
+                rank + perm[1] < 0 || rank + perm[1] > 7) continue;
+                if (board.isOccupied(file+perm[0], rank + perm[1]))
+                {
+                    if (board.getSquareFromCoord(file+perm[0], rank + perm[1]).piece.color == -color){
+                        safe.Add(file+perm[0] + (rank + perm[1])*8);
+                    }
+                }
+            }
+        }
+        
+        if (ignoreCheck) return safe;
+        moves = safe;
+        safe = new List<int>();
+        foreach (int mv in moves)
+        {
+            if (!simulateMove(mv))
+            {
+                safe.Add(mv);
+            }
+        }
         return safe;
     }
     public void move(int file, int rank)
@@ -209,6 +277,24 @@ public class piece : MonoBehaviour
             location.parent.beginPromotionProcess();
         }
         location.parent.lastMoved = this;
+        Debug.Log(location.parent.isCheck(1) ? "White is in check" : "White is not in check");
+        Debug.Log(location.parent.isCheck(-1) ? "Black is in check" : "Black is not in check");
+        location.parent.switchTurn();
+    }
+    bool simulateMove(int index)
+    {
+        square stored = location;
+        location.piece = null;
+        location = location.parent.getSquareFromIndex(index);
+        piece replaced = location.piece;
+        location.piece = this;
+        bool legal = location.parent.isCheck(color);
+        Debug.Log(legal ? "Illegal" : "Legal");
+        location.piece = replaced;
+        location = stored;
+        location.piece = this;
+        Debug.Log("Simulating" + pieceType + " Move to " + index + " which is " + (legal ? "Illegal" : "Legal"));
+        return legal;
     }
     List<int> permutate(int[][] permutations)
     {

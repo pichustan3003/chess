@@ -30,6 +30,10 @@ public class overlay : MonoBehaviour
             parent.parent.nullifySelected();
             return;
         }
+        if (parent.piece.color != parent.parent.turn)
+        {
+            return;
+        }
         if (!yellowd)
         {
             parent.parent.setSelected(parent);

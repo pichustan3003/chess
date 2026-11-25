@@ -11,11 +11,42 @@ public class board : MonoBehaviour
     public bool forcePromotion = false;
     public piece lastMoved = null;
     public GameObject promogrid;
+    public int turn = 1;
+
+    public void switchTurn()
+    {
+        turn *= -1;
+    }
     void Start()
     {
         rank = Resources.Load<GameObject>("Prefabs/Rank");
         createBoard();
         fillBoardByDefault();
+    }
+    public bool isCheck(int color)
+    {
+        List<int> plausibleCaptures = new();
+        color = -color;
+        foreach (square sq in squares)
+        {
+            if (sq.piece != null)
+            {
+                if (sq.piece.color == color)
+                {
+                    plausibleCaptures.AddRange(sq.piece.returnIndexOfTheoreticalCaptures(true));
+                }
+            }
+        }
+        Debug.Log("Captures at " + plausibleCaptures);
+        foreach (int c in plausibleCaptures)
+        {
+            if (squares[c].piece == null) continue;
+            if (squares[c].piece.pieceType == "K" && squares[c].piece.color == -color)
+            {
+                return true;
+            }
+        }
+        return false;
     }
     public void handlePromotion(string piece)
     {
