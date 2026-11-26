@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
 using TMPro;
+using Unity.Android.Gradle;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UI;
@@ -89,6 +90,11 @@ public class board : MonoBehaviour
                 }
                 winner.gameObject.SetActive(true);
             }
+            if (insufficentMaterial() && !settings["giveaway"] && !settings["horde"])
+            {
+                winner.text = "Insufficent Material";
+                winProtocol();
+            }
         }
         if (settings["giveaway"])
         {
@@ -172,6 +178,43 @@ public class board : MonoBehaviour
     void winProtocol()
     {
         turn = 0;
+    }
+    bool insufficentMaterial()
+    {
+        List<piece> allP = new();
+        List<string> mateble = new List<string>(){"P","Q","R"};
+        foreach (square sq in squares)
+        {
+            if (sq.piece != null)
+            {
+                allP.Add(sq.piece);
+                if (mateble.Contains(sq.piece.pieceType))
+                {
+                    return false;
+                }
+            }
+        }
+        if (settings["3check"] && allP.Count > 2)
+        {
+            return false;
+        }
+        if (allP.Count <= 3)
+        {
+            return true;
+        }
+        int bCol = 7;
+        foreach (piece p in allP)
+        {
+            if (p.pieceType == "B")
+            {
+                if (bCol != 7 && allP.Count < 5 && bCol==(p.location.rank + p.location.file) % 2)
+                {
+                    return true;
+                }
+                bCol = (p.location.rank + p.location.file) % 2;
+            }
+        }
+        return true;
     }
     public void readCheckboxes()
     {

@@ -128,13 +128,33 @@ public class piece : MonoBehaviour
                 int homeRank = color == 1 ? 0 : 7;
                 if (rank == homeRank)
                 {
-                    if (canCastle(true) && !moves.Contains(homeRank * 8 + 6))
+                    int kingSideTargetFile = file + 2;
+                    if (canCastle(true))
                     {
-                        moves.Add(homeRank * 8 + 6);
+                        if (kingSideTargetFile <= 7)
+                        {
+                            moves.Add(homeRank * 8 + kingSideTargetFile);
+                        }
+                        else
+                        {
+                            piece rook = findCastlingRook(1);
+                            int rookIndex = rook.location.rank * 8 + rook.location.file;
+                            if (!moves.Contains(rookIndex)) moves.Add(rookIndex);
+                        }
                     }
-                    if (canCastle(false) && !moves.Contains(homeRank * 8 + 2))
+                    int queenSideTargetFile = file - 2;
+                    if (canCastle(false))
                     {
-                        moves.Add(homeRank * 8 + 2);
+                        if (queenSideTargetFile >= 0)
+                        {
+                            moves.Add(homeRank * 8 + queenSideTargetFile);
+                        }
+                        else
+                        {
+                            piece rook = findCastlingRook(-1);
+                            int rookIndex = rook.location.rank * 8 + rook.location.file;
+                            if (!moves.Contains(rookIndex)) moves.Add(rookIndex);
+                        }
                     }
                 }
             }
@@ -143,6 +163,11 @@ public class piece : MonoBehaviour
         List<int> safe = new List<int>();
         foreach (int mv in moves)
         {
+            if (getCastlingSideForTarget(mv) != 0)
+            {
+                safe.Add(mv);
+                continue;
+            }
             if (!simulateMove(mv))
             {
                 safe.Add(mv);
@@ -299,11 +324,14 @@ public class piece : MonoBehaviour
     {
         board parentBoard = location.parent;
         square previousLocation = location;
-        square destination = parentBoard.getSquareFromCoord(file, rank);
-        bool kingSideCastle = pieceType == "K" &&
-            rank == (color == 1 ? 0 : 7) && file == 6 && canCastle(true);
-        bool queenSideCastle = pieceType == "K" &&
-            rank == (color == 1 ? 0 : 7) && file == 2 && canCastle(false);
+        int castleSide = getCastlingSideForTarget(file, rank);
+        bool kingSideCastle = castleSide == 1;
+        bool queenSideCastle = castleSide == -1;
+        int destinationFile = kingSideCastle ? 6 : queenSideCastle ? 2 : file;
+        int destinationRank = kingSideCastle || queenSideCastle
+            ? (color == 1 ? 0 : 7)
+            : rank;
+        square destination = parentBoard.getSquareFromCoord(destinationFile, destinationRank);
         piece castlingRook = kingSideCastle
             ? findCastlingRook(1)
             : queenSideCastle ? findCastlingRook(-1) : null;
@@ -343,7 +371,7 @@ public class piece : MonoBehaviour
         if (castlingRook != null)
         {
             int rookDestinationFile = kingSideCastle ? 5 : 3;
-            castlingRook.location = parentBoard.getSquareFromCoord(rookDestinationFile, rank);
+            castlingRook.location = parentBoard.getSquareFromCoord(rookDestinationFile, destinationRank);
             castlingRook.location.piece = castlingRook;
             castlingRook.moved = true;
             castlingRook.transform.position = new Vector3(
@@ -371,6 +399,27 @@ public class piece : MonoBehaviour
             previousLocation.createPieceOnSquare("BLOCK", 9);
         }
         location.parent.switchTurn();
+    }
+    int getCastlingSideForTarget(int targetIndex)
+    {
+        return getCastlingSideForTarget(targetIndex % 8, targetIndex / 8);
+    }
+    int getCastlingSideForTarget(int targetFile, int targetRank)
+    {
+        int homeRank = color == 1 ? 0 : 7;
+        if (pieceType != "K" || targetRank != homeRank || location.rank != homeRank)
+        {
+            return 0;
+        }
+        if (targetFile == location.file + 2 && canCastle(true)) return 1;
+        if (targetFile == location.file - 2 && canCastle(false)) return -1;
+        piece kingSideRook = location.file + 2 > 7 ? findCastlingRook(1) : null;
+        if (kingSideRook != null && targetFile == kingSideRook.location.file &&
+            canCastle(true)) return 1;
+        piece queenSideRook = location.file - 2 < 0 ? findCastlingRook(-1) : null;
+        if (queenSideRook != null && targetFile == queenSideRook.location.file &&
+            canCastle(false)) return -1;
+        return 0;
     }
     bool canCastle(bool kingSide)
     {
