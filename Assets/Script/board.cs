@@ -84,7 +84,7 @@ public class board : MonoBehaviour
                 winProtocol();
                 if (settings["giveaway"])
                 {
-                    winner.text = turn == 1 ? "WHITE WINS" : "BLACK WINS";
+                    winner.text = turn == -1 ? "WHITE WINS" : "BLACK WINS";
                     winProtocol();
                 }
                 winner.gameObject.SetActive(true);
@@ -120,16 +120,18 @@ public class board : MonoBehaviour
                 winProtocol();
             }
         }
-        if (settings["atomic"]) atomicWin();  
+        if (settings["atomic"] || settings["chain"] || settings["horde"]) atomicWin();  
     }
     void atomicWin()
     {
+        bool hordeBypass = settings["horde"];
+        if (settings["giveaway"]) return;
         piece Wking = null;
         foreach (square sq in squares)
         {
             if (sq.piece != null)
             {
-                if (sq.piece.pieceType == "K" && sq.piece.color == 1)
+                if ((sq.piece.pieceType == "K" && sq.piece.color == 1) || (hordeBypass && sq.piece.pieceType == "P" && sq.piece.color == 1))
                 {
                     Wking = sq.piece;
                     break;
@@ -324,12 +326,43 @@ public class board : MonoBehaviour
     }
     void fillBoardByDefault()
     {
+        if (settings["960"])
+        {
+            fischerSetup();
+            for (int i = 0; i < 8; i++)
+            {
+                getSquareFromCoord(i,1).createPieceOnSquare("P", 1);
+                getSquareFromCoord(i,6).createPieceOnSquare("P", -1);
+            }
+            return;
+        }
         for (int i = 0; i < 8; i++)
         {
             getSquareFromCoord(i,1).createPieceOnSquare("P", 1);
             getSquareFromCoord(i,6).createPieceOnSquare("P", -1);
         }
-        
+        if (settings["horde"])
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                getSquareFromCoord(i,0).createPieceOnSquare("P", 1);
+                getSquareFromCoord(i,2).createPieceOnSquare("P", 1);
+                getSquareFromCoord(i,3).createPieceOnSquare("P", 1);
+            }
+            getSquareFromCoord(1,4).createPieceOnSquare("P", 1);
+            getSquareFromCoord(2,4).createPieceOnSquare("P", 1);
+            getSquareFromCoord(5,4).createPieceOnSquare("P", 1);
+            getSquareFromCoord(6,4).createPieceOnSquare("P", 1);
+            getSquareFromCoord(0,7).createPieceOnSquare("R",-1);
+            getSquareFromCoord(7,7).createPieceOnSquare("R",-1);
+            getSquareFromCoord(1,7).createPieceOnSquare("N",-1);
+            getSquareFromCoord(6,7).createPieceOnSquare("N",-1);
+            getSquareFromCoord(2,7).createPieceOnSquare("B",-1);
+            getSquareFromCoord(5,7).createPieceOnSquare("B",-1);
+            getSquareFromCoord(3,7).createPieceOnSquare("Q",-1);
+            getSquareFromCoord(4,7).createPieceOnSquare("K",-1);
+            return;
+        }
         // rooks
 
         getSquareFromCoord(0,0).createPieceOnSquare("R",1);
@@ -414,5 +447,49 @@ public class board : MonoBehaviour
     public bool isOccupied(int index)
     {
         return squares[index].piece != null;
+    }
+    void fischerSetup()
+    {
+        List<string> bag = new List<string>()
+        {
+            "K","Q","R","R","B","B","N","N"
+        };
+        List<string> order = new List<string>();
+        while (bag.Count != 0)
+        {
+            int chosenInt = pickRandomIndexFromList(bag);
+            string chosen = bag[chosenInt];
+            if (chosen == "K" && countOccurances(bag, "R") == 2) continue;
+            if (chosen == "R" && countOccurances(bag, "R") == 1 && countOccurances(bag, "K") == 1) continue;
+            if (chosen == "B" && countOccurances(bag, "B") == 1)
+            {
+                if (order.IndexOf("B") % 2 == bag.Count % 2) continue;
+            }
+            order.Add(chosen);
+            bag.RemoveAt(chosenInt);
+        }
+        int indx = 0;
+        foreach (string piece in order)
+        {
+            getSquareFromCoord(indx, 0).createPieceOnSquare(piece, 1);
+            getSquareFromCoord(indx, 7).createPieceOnSquare(piece, -1);
+            indx++;
+        }
+    }
+    int pickRandomIndexFromList(List<string> list)
+    {
+        return UnityEngine.Random.Range(0,list.Count);
+    }
+    int countOccurances(List<string> list, string match)
+    {
+        int count = 0;
+        foreach (string str in list)
+        {
+            if (str == match)
+            {
+                count ++;
+            }
+        }
+        return count;
     }
 }

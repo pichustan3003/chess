@@ -23,9 +23,20 @@ public class overlay : MonoBehaviour
             {
                 Destroy(parent.piece.gameObject);
             }
+            string destroyed = parent.piece != null ? parent.piece.pieceType : null;
             square current = parent.parent.currentSelected;
             current.overlay.GetComponent<overlay>().deselect();
-            current.piece.move(parent.file, parent.rank, parent.parent.settings["atomic"]);
+            bool dSwitch = false;
+            bool adSwitch = false;
+            if (parent.parent.settings["atomic"])
+            {
+                adSwitch = true;
+            }
+            if (parent.parent.settings["chain"] && destroyed != "P" && destroyed != null)
+            {
+                dSwitch = true;
+            }
+            current.piece.move(parent.file, parent.rank, dSwitch || adSwitch);
             if (parent.parent.settings["atomic"])
             {
                 int[][] permutations =
@@ -54,7 +65,9 @@ public class overlay : MonoBehaviour
                         }
                     }
                 }
-                parent.parent.switchTurn();
+                if (!dSwitch){
+                    parent.parent.switchTurn();
+                }
             }
             return;
         }
