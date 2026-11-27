@@ -43,9 +43,9 @@ public class variantDescriptionDisplay : MonoBehaviour
                 continue;
             }
 
-            if (fields.Count != 4)
+            if (fields.Count != 3)
             {
-                Debug.LogError($"Variant description on line {i + 1} must have exactly four fields.");
+                Debug.LogError($"Variant description on line {i + 1} must have exactly three fields.");
                 continue;
             }
 
@@ -87,7 +87,7 @@ public class variantDescriptionDisplay : MonoBehaviour
         if (titleText == null || descriptionText == null ||
             winConditionsText == null)
         {
-            Debug.LogError("Assign all four TMP text fields on variantDescriptionDisplay.");
+            Debug.LogError("Assign all three TMP text fields on variantDescriptionDisplay.");
             return;
         }
 

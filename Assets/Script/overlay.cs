@@ -7,9 +7,17 @@ public class overlay : MonoBehaviour
     public bool yellowd = false;
     public bool moveSq = false;
     public bool captureSq = false;
+    public bool duckSquare = false;
     void OnMouseDown()
     {
         if (parent.parent.forcePromotion) return;
+        if (duckSquare)
+        {
+            parent.createPieceOnSquare("Duck", 2);
+            parent.parent.ClearDuckOverlays();
+            parent.parent.lastMoved = parent.piece;
+            parent.parent.switchTurn();
+        }
         if (moveSq)
         {
             square current = parent.parent.currentSelected;
@@ -76,10 +84,12 @@ public class overlay : MonoBehaviour
             parent.parent.nullifySelected();
             return;
         }
-        if (parent.piece.color != parent.parent.turn)
+        if (parent.piece.color != parent.parent.turn && parent.piece.color != 2)
         {
             return;
         }
+        if (parent.parent.settings["duck"] && parent.parent.requireDuckMove && parent.piece.pieceType != "Duck") return;
+        if (parent.parent.settings["duck"] && !parent.parent.requireDuckMove && parent.piece.pieceType == "Duck") return;
         if (!yellowd)
         {
             parent.parent.setSelected(parent);

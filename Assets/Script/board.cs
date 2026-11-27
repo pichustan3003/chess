@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using TMPro;
 using Unity.Android.Gradle;
 using UnityEditor.Experimental.GraphView;
+using UnityEditor.SettingsManagement;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -29,13 +30,44 @@ public class board : MonoBehaviour
 
     public int checkCountWhite = 0;
     public int checkCountBlack = 0;
-
+    public piece checkersFocal = null;
+    public bool requireDuckMove = false;
     void Start()
     {
         readCheckboxes();
     }
     public void switchTurn()
     {
+        if (lastMoved){
+            if (settings["duck"] && lastMoved.pieceType != "Duck")
+            {
+                requireDuckMove = true;
+                bool duckFound = false;
+                foreach (square sq in squares)
+                {
+                    if (sq.piece != null)
+                    {
+                        if (sq.piece.pieceType == "Duck") {duckFound = true; break;}
+                    }
+                }
+                if (!duckFound)
+                {
+                    requireDuckMove = false;
+                    foreach (square sq in squares)
+                    {
+                        if (sq.piece == null)
+                        {
+                            displayDuckOnOverlayAtIndex(sq.rank*8 + sq.file);
+                        }
+                    }
+                }
+                return;
+            }
+            else
+            {
+                requireDuckMove = false;
+            }
+        }
         possibleCapture = false;
         turn *= -1;
         if (isCheck(turn))
@@ -96,7 +128,7 @@ public class board : MonoBehaviour
                 winProtocol();
             }
         }
-        if (settings["giveaway"])
+        if (settings["giveaway"] || settings["checkers"])
         {
             foreach (square sq in squares)
             {
@@ -126,18 +158,19 @@ public class board : MonoBehaviour
                 winProtocol();
             }
         }
-        if (settings["atomic"] || settings["chain"] || settings["horde"]) atomicWin();  
+        if (settings["atomic"] || settings["chain"] || settings["horde"] || settings["checkers"] || settings["duck"]) atomicWin();  
     }
     void atomicWin()
     {
         bool hordeBypass = settings["horde"];
+        bool checkersBypass = settings["checkers"];
         if (settings["giveaway"]) return;
         piece Wking = null;
         foreach (square sq in squares)
         {
             if (sq.piece != null)
             {
-                if ((sq.piece.pieceType == "K" && sq.piece.color == 1) || (hordeBypass && sq.piece.pieceType == "P" && sq.piece.color == 1))
+                if ((sq.piece.pieceType == "K" && sq.piece.color == 1) || (hordeBypass && sq.piece.pieceType == "P" && sq.piece.color == 1) || (checkersBypass & sq.piece.pieceType == "C" && sq.piece.color == 1) || (checkersBypass & sq.piece.pieceType == "KC" && sq.piece.color == -1))
                 {
                     Wking = sq.piece;
                     break;
@@ -149,7 +182,7 @@ public class board : MonoBehaviour
         {
             if (sq.piece != null)
             {
-                if (sq.piece.pieceType == "K" && sq.piece.color == -1)
+                if ((sq.piece.pieceType == "K" && sq.piece.color == -1) || (checkersBypass & sq.piece.pieceType == "C" && sq.piece.color == -1) || (checkersBypass & sq.piece.pieceType == "KC" && sq.piece.color == -1))
                 {
                     Bking = sq.piece;
                     break;
@@ -182,7 +215,7 @@ public class board : MonoBehaviour
     bool insufficentMaterial()
     {
         List<piece> allP = new();
-        List<string> mateble = new List<string>(){"P","Q","R"};
+        List<string> mateble = new List<string>(){"P","Q","R","C"};
         foreach (square sq in squares)
         {
             if (sq.piece != null)
@@ -261,6 +294,7 @@ public class board : MonoBehaviour
         menu.SetActive(false);
         createBoard();
         fillBoardByDefault();
+        if (settings["checkers"]){turn = 1;}
         switchTurn();
     }
     public bool IsCheckmate(int color)
@@ -303,7 +337,7 @@ public class board : MonoBehaviour
     }
     public bool isCheck(int color)
     {
-        if (settings["giveaway"]) return false;
+        if (settings["giveaway"] || settings["duck"]) return false;
         List<int> plausibleCaptures = new();
         color = -color;
         foreach (square sq in squares)
@@ -369,6 +403,30 @@ public class board : MonoBehaviour
     }
     void fillBoardByDefault()
     {
+        if (settings["checkers"])
+        {
+            for (int r = 0; r < 3 ; r++)
+            {
+                for (int f = 0; f < 8; f++)
+                {
+                    if ((r + f) % 2 == 0)
+                    {
+                        getSquareFromCoord(f,r).createPieceOnSquare("C", 1);
+                    }
+                }
+            }
+            for (int r = 7; r > 4 ; r--)
+            {
+                for (int f = 0; f < 8; f++)
+                {
+                    if ((r + f) % 2 == 0)
+                    {
+                        getSquareFromCoord(f,r).createPieceOnSquare("C", -1);
+                    }
+                }
+            }
+            return;
+        }
         if (settings["960"])
         {
             fischerSetup();
@@ -463,7 +521,7 @@ public class board : MonoBehaviour
     }
     public void displayMoveOnOverlayAtIndex(int index)
     {
-        if (settings["giveaway"] && possibleCapture)
+        if ((settings["giveaway"] || settings["checkers"]) && possibleCapture)
         {
             return;
         }
@@ -477,11 +535,29 @@ public class board : MonoBehaviour
         squares[index].overlay.GetComponent<overlay>().captureSq = true;
     }
 
+    public void displayDuckOnOverlayAtIndex(int index)
+    {
+        squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/duckOverlay");
+        squares[index].overlay.GetComponent<overlay>().duckSquare = true;
+    }
+
     public void ClearOverlayAtIndex(int index)
     {
         squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/blank");
         squares[index].overlay.GetComponent<overlay>().moveSq = false;
         squares[index].overlay.GetComponent<overlay>().captureSq = false;
+        squares[index].overlay.GetComponent<overlay>().duckSquare = false;
+    }
+    public void ClearDuckOverlays()
+    {
+        Sprite duckOvers = Resources.Load<Sprite>("Pieces/duckOverlay");
+        foreach (square sq in squares)
+        {
+            if (sq.overlay.GetComponent<SpriteRenderer>().sprite == duckOvers)
+            {
+                ClearOverlayAtIndex(sq.rank*8 + sq.file);
+            }
+        }
     }
     public bool isOccupied(int file, int rank)
     {

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using Unity.Mathematics;
 using UnityEditor.SettingsManagement;
 using UnityEngine;
 using UnityEngine.AI;
@@ -160,9 +162,10 @@ public class piece : MonoBehaviour
         {
             int[][] permutations =
             {
-                new[] { 1, 1 },
-                new[] { -1, 1 }
+                new[] { 1, color },
+                new[] { -1, color }
             };
+            if (board.checkersFocal != null && board.checkersFocal != this) return moves;
             foreach (int[] perm in permutations)
             {
                 if (file + perm[0] < 0 || file + perm[0] > 7 ||
@@ -171,6 +174,34 @@ public class piece : MonoBehaviour
                 {
                     moves.Add(file+perm[0] + (rank + perm[1])*8);
                 }
+            }
+        }
+        else if (pieceType == "KC")
+        {
+            int[][] permutations =
+            {
+                new[] { 1, color },
+                new[] {-1, color },
+                new[] {1, -color},
+                new[] {-1, -color}
+            };
+            if (board.checkersFocal != null && board.checkersFocal != this) return moves;
+            foreach (int[] perm in permutations)
+            {
+                if (file + perm[0] < 0 || file + perm[0] > 7 ||
+                rank + perm[1] < 0 || rank + perm[1] > 7) continue;
+                if (!board.isOccupied(file+perm[0], rank + perm[1]))
+                {
+                    moves.Add(file+perm[0] + (rank + perm[1])*8);
+                }
+            }
+        }
+
+        else if (pieceType == "Duck")
+        {
+            for (int i = 0; i < 64; i++)
+            {
+                if (!board.isOccupied(i)) moves.Add(i);
             }
         }
         List<int> safe = new List<int>();
@@ -320,6 +351,52 @@ public class piece : MonoBehaviour
                 }
             }
         }
+        else if (pieceType == "C")
+        {
+            if (board.checkersFocal != null && board.checkersFocal != this) return safe;
+            int[][] permutations =
+            {
+                new[] { 1, color },
+                new[] { -1, color }
+            };
+            foreach (int[] perm in permutations)
+            {
+                if (file + perm[0] < 0 || file + perm[0] > 7 ||
+                rank + perm[1] < 0 || rank + perm[1] > 7|| file + perm[0]*2 < 0 || file + perm[0]*2 > 7 ||
+                rank + perm[1]*2 < 0 || rank + perm[1]*2 > 7) continue;
+                if (board.isOccupied(file+perm[0], rank + perm[1]))
+                {
+                    if (board.getSquareFromCoord(file+perm[0], rank + perm[1]).piece.color == -color && !board.isOccupied(file+perm[0]*2, rank + perm[1]*2)){
+                        safe.Add(file+perm[0]*2 + (rank + perm[1]*2)*8);
+                        Debug.Log(file+perm[0] + ((rank + perm[1])*8));
+                    }
+                }
+            }
+        }
+        else if (pieceType == "KC")
+        {
+            if (board.checkersFocal != null && board.checkersFocal != this) return safe;
+            int[][] permutations =
+            {
+                new[] { 1, color },
+                new[] { -1, color },
+                new[] {1, -color},
+                new[] {-1, -color}
+            };
+            foreach (int[] perm in permutations)
+            {
+                if (file + perm[0] < 0 || file + perm[0] > 7 ||
+                rank + perm[1] < 0 || rank + perm[1] > 7|| file + perm[0]*2 < 0 || file + perm[0]*2 > 7 ||
+                rank + perm[1]*2 < 0 || rank + perm[1]*2 > 7) continue;
+                if (board.isOccupied(file+perm[0], rank + perm[1]))
+                {
+                    if (board.getSquareFromCoord(file+perm[0], rank + perm[1]).piece.color == -color && !board.isOccupied(file+perm[0]*2, rank + perm[1]*2)){
+                        safe.Add(file+perm[0]*2 + (rank + perm[1]*2)*8);
+                        Debug.Log(file+perm[0] + ((rank + perm[1])*8));
+                    }
+                }
+            }
+        }
         if (ignoreCheck) return safe;
         moves = safe;
         safe = new List<int>();
@@ -361,7 +438,7 @@ public class piece : MonoBehaviour
                 parentBoard.lastMoved == enPassantCaptured)
             {
                 enPassantCapturedSquare.piece = null;
-                Destroy(enPassantCaptured.gameObject);
+                DestroyImmediate(enPassantCaptured.gameObject);
             }
             else
             {
@@ -403,6 +480,35 @@ public class piece : MonoBehaviour
         {
             parentBoard.enPassantTarget =
                 ((rank + previousLocation.rank) / 2) * 8 + file;
+        }
+        if (pieceType == "C")
+        {
+            if ((location.rank == 7 && color == 1) || (location.rank == 0 && color == -1))
+            {
+                pieceType = "KC";
+                show();
+            }
+        }
+        if ((pieceType == "C" || pieceType == "KC") && math.abs(previousLocation.file-location.file) > 1)
+        {
+            int midFile = (previousLocation.file+location.file)/2;
+            int midRow = (previousLocation.rank+location.rank)/2;
+            if (location.parent.isOccupied(midFile, midRow))
+            {
+                if (location.parent.getSquareFromCoord(midFile, midRow).piece.color == -color)
+                {
+                    DestroyImmediate(location.parent.getSquareFromCoord(midFile, midRow).piece.gameObject);
+                    if (returnIndexOfTheoreticalCaptures().Count != 0)
+                    {
+                        dontSwitch = true;
+                        location.parent.checkersFocal = this;
+                    }
+                    else
+                    {
+                        location.parent.checkersFocal = null;
+                    }
+                }
+            }
         }
         location.parent.lastMoved = this;
         if (dontSwitch) return;
