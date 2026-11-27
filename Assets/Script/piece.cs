@@ -23,10 +23,6 @@ public class piece : MonoBehaviour
         board board = location.parent;
         List<int> moves = new();
         if (pieceType == "P"){
-            if (rank == 7 || rank == 0)
-            {
-                return new List<int>();
-            }
             moves.Add((rank+(1*color))*8+file);
             if (board.isOccupied(moves[0]))
             {
@@ -159,6 +155,23 @@ public class piece : MonoBehaviour
                 }
             }
 
+        }
+        else if (pieceType == "C")
+        {
+            int[][] permutations =
+            {
+                new[] { 1, 1 },
+                new[] { -1, 1 }
+            };
+            foreach (int[] perm in permutations)
+            {
+                if (file + perm[0] < 0 || file + perm[0] > 7 ||
+                rank + perm[1] < 0 || rank + perm[1] > 7) continue;
+                if (!board.isOccupied(file+perm[0], rank + perm[1]))
+                {
+                    moves.Add(file+perm[0] + (rank + perm[1])*8);
+                }
+            }
         }
         List<int> safe = new List<int>();
         foreach (int mv in moves)
@@ -307,7 +320,6 @@ public class piece : MonoBehaviour
                 }
             }
         }
-        
         if (ignoreCheck) return safe;
         moves = safe;
         safe = new List<int>();

@@ -9,7 +9,6 @@ public class variantDescriptionDisplay : MonoBehaviour
     public TMP_Text titleText;
     public TMP_Text descriptionText;
     public TMP_Text winConditionsText;
-    public TMP_Text contradictionsText;
 
     readonly Dictionary<string, string[]> descriptions =
         new(StringComparer.OrdinalIgnoreCase);
@@ -52,8 +51,7 @@ public class variantDescriptionDisplay : MonoBehaviour
 
             if (fields[0].Equals("title", StringComparison.OrdinalIgnoreCase) &&
                 fields[1].Equals("description", StringComparison.OrdinalIgnoreCase) &&
-                fields[2].Equals("win conditions", StringComparison.OrdinalIgnoreCase) &&
-                fields[3].Equals("contradictions", StringComparison.OrdinalIgnoreCase))
+                fields[2].Equals("win conditions", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -87,7 +85,7 @@ public class variantDescriptionDisplay : MonoBehaviour
         }
 
         if (titleText == null || descriptionText == null ||
-            winConditionsText == null || contradictionsText == null)
+            winConditionsText == null)
         {
             Debug.LogError("Assign all four TMP text fields on variantDescriptionDisplay.");
             return;
@@ -103,7 +101,6 @@ public class variantDescriptionDisplay : MonoBehaviour
         titleText.text = fields[0];
         descriptionText.text = $"Description: {fields[1]}";
         winConditionsText.text = $"Win Conditions \n{fields[2]}";
-        contradictionsText.text = $"Contradictions \n{fields[3]}";
         showMenu();
     }
 
