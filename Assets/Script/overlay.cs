@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class overlay : MonoBehaviour
 {
@@ -8,9 +9,19 @@ public class overlay : MonoBehaviour
     public bool moveSq = false;
     public bool captureSq = false;
     public bool duckSquare = false;
+    public bool samSquare = false;
+    public bool placementSquare = false;
     void OnMouseDown()
     {
         if (parent.parent.forcePromotion) return;
+        if (placementSquare)
+        {
+            parent.parent.catchPlacement(this);
+        }
+        else
+        {
+            parent.parent.clearAllPlacement();
+        }
         if (duckSquare)
         {
             parent.createPieceOnSquare("Duck", 2);
@@ -18,6 +29,14 @@ public class overlay : MonoBehaviour
             parent.parent.lastMoved = parent.piece;
             parent.parent.switchTurn();
         }
+        if (samSquare)
+        {
+            parent.createPieceOnSquare("Sam", 2);
+            parent.parent.ClearSamOverlays();
+            parent.parent.lastMoved = parent.piece;
+            parent.parent.switchTurn();
+        }
+        if (parent.parent.blockAllMovement) return;
         if (moveSq)
         {
             square current = parent.parent.currentSelected;
@@ -29,6 +48,32 @@ public class overlay : MonoBehaviour
         {
             if (parent.piece != null)
             {
+                if (parent.parent.settings["crazyhouse"])
+                {
+                    string capturedPieceType = parent.piece.pieceType;
+                    int capturedPieceColor = parent.piece.color;
+                    placeableOption pocketOption = null;
+                    foreach (placeableOption obj in parent.parent.placementBack.GetComponentsInChildren<placeableOption>(true))
+                    {
+                        if (obj.gameObject.name == capturedPieceType)
+                        {
+                            pocketOption = obj;
+                            break;
+                        }
+                    }
+                    if (pocketOption == null)
+                    {
+                        Debug.LogWarning($"No Crazyhouse pocket option found for captured piece '{capturedPieceType}'.", parent.parent.placementBack);
+                    }
+                    else if (capturedPieceColor == -1)
+                    {
+                        pocketOption.countWhite += 1;
+                    }
+                    else if (capturedPieceColor == 1)
+                    {
+                        pocketOption.countBlack += 1;
+                    }
+                }
                 Destroy(parent.piece.gameObject);
             }
             string destroyed = parent.piece != null ? parent.piece.pieceType : null;
@@ -65,7 +110,7 @@ public class overlay : MonoBehaviour
                     square sq = parent.parent.getSquareFromCoord(parent.file + perm[0], parent.rank + perm[1]);
                     if (sq.piece != null)
                     {
-                        if (sq.piece.pieceType != "P" || (perm[0] == 0 && perm[1] == 0))
+                        if (sq.piece.pieceType != "P" || sq.piece.pieceType != "Duck" || sq.piece.pieceType != "Sam" || (perm[0] == 0 && perm[1] == 0))
                         {
                             piece explodedPiece = sq.piece;
                             sq.piece = null;
@@ -88,8 +133,8 @@ public class overlay : MonoBehaviour
         {
             return;
         }
-        if (parent.parent.settings["duck"] && parent.parent.requireDuckMove && parent.piece.pieceType != "Duck") return;
-        if (parent.parent.settings["duck"] && !parent.parent.requireDuckMove && parent.piece.pieceType == "Duck") return;
+        if ((parent.parent.settings["duck"] || parent.parent.settings["sam"]) && parent.parent.requireDuckMove && parent.piece.pieceType != "Duck" && parent.piece.pieceType != "Sam") return;
+        if ((parent.parent.settings["duck"] || parent.parent.settings["sam"]) && !parent.parent.requireDuckMove && (parent.piece.pieceType == "Duck" || parent.piece.pieceType == "Sam")) return;
         if (!yellowd)
         {
             parent.parent.setSelected(parent);

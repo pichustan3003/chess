@@ -10,4 +10,8 @@ public class promoOption : MonoBehaviour
     {
         board.handlePromotion(piece);
     }
+    public void render()
+    {
+        gameObject.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/"+gameObject.name[gameObject.name.Length-1]+board.turn);
+    }
 }

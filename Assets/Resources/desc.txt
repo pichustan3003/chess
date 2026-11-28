@@ -8,3 +8,8 @@
 "960", "Backrank pieces are shuffled around, the same way for both black and white, the only rules being that the king must spawn between the two rooks to allow castling and the bishops must be on opposite colours", "Checkmate"
 "checkers", "It's just checkers, look up the rules", "Taking all opponents checkers"
 "duck", "The duck is moved after every piece move to any free square", "Checkmate\nBeing Stalemated"
+"sam", "The same as duck chess", "Checkmate\nBeing Stalemated"
+"random", "All pieces are arranged randomly\nThe only safeguard is the king spawns on the Backrank to prevent instaloss", "Checkmate"
+"blind", "All pieces are replaced with question marks and all move indicators are removed, hope you remember where your pieces move\nExtra fun with random\nInvalid moves are rejected", "Checkmate"
+"setup", "You are given 39 points of material to allocate however you see fit at the start of the game", "Checkmate"
+"crazyhouse", "If you take a piece from your opponent you can place it as yours on your turn", "Checkmate"

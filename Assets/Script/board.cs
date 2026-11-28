@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using JetBrains.Annotations;
 using TMPro;
 using Unity.Android.Gradle;
+using Unity.VisualScripting;
 using UnityEditor.Experimental.GraphView;
 using UnityEditor.SettingsManagement;
 using UnityEngine;
@@ -32,6 +34,14 @@ public class board : MonoBehaviour
     public int checkCountBlack = 0;
     public piece checkersFocal = null;
     public bool requireDuckMove = false;
+    public bool blockAllMovement = false;
+    public int whiteMaterialRemaining = 39;
+    public int blackMaterialRemaining = 39;
+    public int costOfPlacingPiece;
+    public string typeOfPlacedPiece = null;
+    public GameObject placementBack;
+    public bool wKingPlaced = false;
+    public bool bKingPlaced = false;
     void Start()
     {
         readCheckboxes();
@@ -67,9 +77,102 @@ public class board : MonoBehaviour
             {
                 requireDuckMove = false;
             }
+            if (settings["sam"] && lastMoved.pieceType != "Sam")
+            {
+                requireDuckMove = true;
+                bool duckFound = false;
+                foreach (square sq in squares)
+                {
+                    if (sq.piece != null)
+                    {
+                        if (sq.piece.pieceType == "Sam") {duckFound = true; break;}
+                    }
+                }
+                if (!duckFound)
+                {
+                    requireDuckMove = false;
+                    foreach (square sq in squares)
+                    {
+                        if (sq.piece == null)
+                        {
+                            displaySamOnOverlayAtIndex(sq.rank*8 + sq.file);
+                        }
+                    }
+                }
+                return;
+            }
+            else
+            {
+                requireDuckMove = false;
+            }
         }
         possibleCapture = false;
         turn *= -1;
+        foreach (placeableOption place in placementBack.GetComponentsInChildren<placeableOption>(true))
+        {
+            place.render();
+        }
+        if (blockAllMovement)
+        {
+            if (isCheck(turn))
+            {
+                checkCountBlack += turn == 1 ? 1 : 0;
+                checkCountWhite += turn == -1 ? 1 : 0;
+                piece king = null;
+                foreach (square sq in squares)
+                {
+                    if (sq.piece != null)
+                    {
+                        if (sq.piece.pieceType == "K" && sq.piece.color == turn)
+                        {
+                            king = sq.piece;
+                            break;
+                        }
+                    }
+                }
+                if (king != null) king.location.makeRed();
+            }
+            else
+            {
+                piece king = null;
+                foreach (square sq in squares)
+                {
+                    if (sq.piece != null)
+                    {
+                        if (sq.piece.pieceType == "K" && sq.piece.color == -turn)
+                        {
+                            king = sq.piece;
+                            break;
+                        }
+                    }
+                }
+
+                if (king != null) king.location.makeNormal();
+            }
+            if (turn == 1)
+            {
+                if (wKingPlaced && whiteMaterialRemaining == 0)
+                {
+                    switchTurn();
+                    foreach (placeableOption place in placementBack.GetComponentsInChildren<placeableOption>(true))
+                    {
+                        place.render();
+                    }
+                }
+            }
+            else if (turn == -1)
+            {
+                if (bKingPlaced && blackMaterialRemaining == 0)
+                {
+                    switchTurn();
+                    foreach (placeableOption place in placementBack.GetComponentsInChildren<placeableOption>(true))
+                    {
+                        place.render();
+                    }
+                }
+            }
+            return;
+        }
         if (isCheck(turn))
         {
             checkCountBlack += turn == 1 ? 1 : 0;
@@ -158,7 +261,7 @@ public class board : MonoBehaviour
                 winProtocol();
             }
         }
-        if (settings["atomic"] || settings["chain"] || settings["horde"] || settings["checkers"] || settings["duck"]) atomicWin();  
+        if (settings["atomic"] || settings["chain"] || settings["horde"] || settings["checkers"] || settings["duck"] || settings["sam"]) atomicWin();  
     }
     void atomicWin()
     {
@@ -300,6 +403,52 @@ public class board : MonoBehaviour
     public bool IsCheckmate(int color)
     {
         if (!isCheck(color)) return false;
+        if (settings["crazyhouse"])
+        {
+            bool canCrazy = false;
+            bool onlyPawn = true;
+            foreach (placeableOption place in placementBack.GetComponentsInChildren<placeableOption>())
+            {
+                if (color == 1)
+                {
+                    if (place.countWhite > 0)
+                    {
+                        canCrazy = true;
+                        if (place.pieceName != "P") onlyPawn = false;
+                    }
+                }
+                else if (color == -1)
+                {
+                    if (place.countBlack > 0)
+                    {
+                        canCrazy = true;
+                        if (place.pieceName != "P") onlyPawn = false;
+                    }
+                }
+            }
+
+            if (canCrazy)
+            {
+                for (int r = 0; r < 8; r ++)
+                {
+                    for (int f = 0; f < 8; f++)
+                    {
+                        if (!isOccupied(f, r))
+                        {
+                            if (onlyPawn && (r == 0 || r == 7)) continue;
+                            square test = getSquareFromCoord(f,r);
+                            test.createPieceOnSquare("blank", turn);
+                            if (!isCheck(turn))
+                            {
+                                DestroyImmediate(test.piece.gameObject);
+                                return false;
+                            }
+                            DestroyImmediate(test.piece.gameObject);
+                        }
+                    }
+                }
+            }
+        }
         foreach (square sq in squares)
         {
             if (sq.piece != null)
@@ -316,9 +465,110 @@ public class board : MonoBehaviour
         }
         return true;
     }
+    public void startSetupChess()
+    {
+        blockAllMovement = true;
+        placementBack.SetActive(true);
+    }
+
+    public void requestShow()
+    {
+        placementBack.SetActive(true);
+    }
+    public void summon(string pieceName, int cost)
+    {
+        if (settings["setup"] && blockAllMovement)
+        {
+            placementOfSetup(pieceName, cost);
+            return;
+        }
+        if (settings["crazyhouse"])
+        {
+            placementOfCrazy(pieceName, cost);
+        }
+    }
+
+    public void clearAllPlacement()
+    {
+        for (int r = 0; r <8; r ++)
+        {
+            for (int f = 0; f < 8; f++)
+            {
+
+                clearPlacementOverlayAtIndex(r*8 + f);
+
+            }
+        }
+    }
+    public void placementOfSetup(string pieceName, int cost)
+    {
+        clearAllPlacement();
+        for (int r = turn == 1 ? 0 : 7; r > 4 || r < 3; r += turn)
+        {
+            for (int f = 0; f < 8; f++)
+            {
+                if (!isOccupied(f, r))
+                {
+                    square test = getSquareFromCoord(f,r);
+                    test.createPieceOnSquare("blank", turn);
+                    if (!isCheck(turn))
+                    {
+                        displayPlacementOverlayAtIndex(r*8 + f);
+                    }
+                    DestroyImmediate(test.piece.gameObject);
+                }
+            }
+        }
+        typeOfPlacedPiece = pieceName;
+        costOfPlacingPiece = cost;
+    }
+
+    public void placementOfCrazy(string pieceName, int cost)
+    {
+        clearAllPlacement();
+        for (int r = 0; r < 8; r ++)
+        {
+            for (int f = 0; f < 8; f++)
+            {
+                if (!isOccupied(f, r))
+                {
+                    if (pieceName == "P" && (r == 0 || r == 7)) continue;
+                    square test = getSquareFromCoord(f,r);
+                    test.createPieceOnSquare("blank", turn);
+                    if (!isCheck(turn))
+                    {
+                        displayPlacementOverlayAtIndex(r*8 + f);
+                    }
+                    DestroyImmediate(test.piece.gameObject);
+                }
+            }
+        }
+        typeOfPlacedPiece = pieceName;
+        costOfPlacingPiece = cost;
+    }
     public bool IsStalemate(int color)
     {
         if (isCheck(color)) return false;
+        if (settings["crazyhouse"])
+        {
+            foreach (placeableOption place in placementBack.GetComponentsInChildren<placeableOption>())
+            {
+                if (color == 1)
+                {
+                    if (place.countWhite > 0)
+                    {
+                        return false;
+                    }
+                }
+                else if (color == -1)
+                {
+                    if (place.countBlack > 0)
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
         foreach (square sq in squares)
         {
             if (sq.piece != null)
@@ -337,7 +587,7 @@ public class board : MonoBehaviour
     }
     public bool isCheck(int color)
     {
-        if (settings["giveaway"] || settings["duck"]) return false;
+        if (settings["giveaway"] || settings["duck"] || settings["sam"]) return false;
         List<int> plausibleCaptures = new();
         color = -color;
         foreach (square sq in squares)
@@ -367,13 +617,49 @@ public class board : MonoBehaviour
             lastMoved.pieceType = piece;
             lastMoved.show();
             forcePromotion = false;
+            if (isCheck(turn))
+            {
+                checkCountBlack += turn == 1 ? 1 : 0;
+                checkCountWhite += turn == -1 ? 1 : 0;
+                piece king = null;
+                foreach (square sq in squares)
+                {
+                    if (sq.piece != null)
+                    {
+                        if (sq.piece.pieceType == "K" && sq.piece.color == turn)
+                        {
+                            king = sq.piece;
+                            break;
+                        }
+                    }
+                }
+                if (king != null) king.location.makeRed();
+            }
+            else
+            {
+                piece king = null;
+                foreach (square sq in squares)
+                {
+                    if (sq.piece != null)
+                    {
+                        if (sq.piece.pieceType == "K" && sq.piece.color == -turn)
+                        {
+                            king = sq.piece;
+                            break;
+                        }
+                    }
+                }
+            }
             promogrid.SetActive(false);
         }
     }
-
     public void beginPromotionProcess()
     {
         forcePromotion = true;
+        foreach (promoOption promo in promogrid.GetComponentsInChildren<promoOption>())
+        {
+            promo.render();
+        }
         promogrid.SetActive(true);
     }
     void createBoard()
@@ -403,6 +689,11 @@ public class board : MonoBehaviour
     }
     void fillBoardByDefault()
     {
+        if (settings["setup"])
+        {
+            startSetupChess();
+            return;
+        }
         if (settings["checkers"])
         {
             for (int r = 0; r < 3 ; r++)
@@ -425,6 +716,11 @@ public class board : MonoBehaviour
                     }
                 }
             }
+            return;
+        }
+        if (settings["random"])
+        {
+            completeRandomGenerator();
             return;
         }
         if (settings["960"])
@@ -525,20 +821,172 @@ public class board : MonoBehaviour
         {
             return;
         }
-        squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/move");
+        if (!settings["blind"]){
+            squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/move");
+        }
         squares[index].overlay.GetComponent<overlay>().moveSq = true;
     }
 
     public void displayTakeOnOverlayAtIndex(int index)
     {
-        squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/capture");
+        if (!settings["blind"]){
+            squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/capture");
+        }
         squares[index].overlay.GetComponent<overlay>().captureSq = true;
     }
-
+    public void completeRandomGenerator()
+    {
+        List<string> bag = new List<string>()
+        {
+            "K","Q","R","R","B","B","N","N","P","P","P","P","P","P","P","P"
+        };
+        List<string> final = new();
+        while (bag.Count > 0)
+        {
+            int rand = pickRandomIndexFromList(bag);
+            final.Add(bag[rand]);
+            bag.RemoveAt(rand);
+            if (!bag.Contains("K"))
+            {
+                if (final.IndexOf("K") > 7)
+                {
+                    bag = new List<string>()
+                    {
+                        "K","Q","R","R","B","B","N","N","P","P","P","P","P","P","P","P"
+                    };
+                    final = new();
+                }
+            }
+        }
+        int count = 0;
+        foreach (string p in final)
+        {
+            getSquareFromIndex(count).createPieceOnSquare(p,1);
+            count++;
+        }
+        bag = new List<string>()
+        {
+            "K","Q","R","R","B","B","N","N","P","P","P","P","P","P","P","P"
+        };
+        final = new();
+        while (bag.Count > 0)
+        {
+            int rand = pickRandomIndexFromList(bag);
+            final.Add(bag[rand]);
+            bag.RemoveAt(rand);
+            if (!bag.Contains("K"))
+            {
+                if (final.IndexOf("K") > 7)
+                {
+                    bag = new List<string>()
+                    {
+                        "K","Q","R","R","B","B","N","N","P","P","P","P","P","P","P","P"
+                    };
+                    final = new();
+                }
+            }
+        }
+        count = 63;
+        foreach (string p in final)
+        {
+            getSquareFromIndex(count).createPieceOnSquare(p,-1);
+            count--;
+        }
+        return;
+    }
     public void displayDuckOnOverlayAtIndex(int index)
     {
-        squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/duckOverlay");
+        if (!settings["blind"]){
+            squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/duckOverlay");
+        }
         squares[index].overlay.GetComponent<overlay>().duckSquare = true;
+    }
+
+    public void catchPlacement(overlay point)
+    {
+        if (settings["setup"] && blockAllMovement && typeOfPlacedPiece != null)
+        {
+            if (typeOfPlacedPiece == "K" && (turn == 1 ? wKingPlaced : bKingPlaced))
+            {
+                return;
+            }
+            else if (typeOfPlacedPiece == "K")
+            {
+                if (turn == 1)
+                {
+                    wKingPlaced = true;
+                }
+                else if (turn == -1)
+                {
+                    bKingPlaced = true;
+                }
+            }
+            point.parent.createPieceOnSquare(typeOfPlacedPiece, turn);
+            clearAllPlacement();
+            if (turn == 1)
+            {
+                whiteMaterialRemaining -= costOfPlacingPiece;
+            }
+            else if (turn == -1)
+            {
+                blackMaterialRemaining -= costOfPlacingPiece;
+            }
+            if (whiteMaterialRemaining == 0 && blackMaterialRemaining == 0 && bKingPlaced && wKingPlaced)
+            {
+                blockAllMovement = false;
+                placementBack.SetActive(false);
+            }
+            switchTurn();
+        }
+
+        else if (settings["crazyhouse"] && typeOfPlacedPiece != null)
+        {
+            placeableOption counter = null;
+            foreach (placeableOption place in placementBack.GetComponentsInChildren<placeableOption>())
+            {
+                if (typeOfPlacedPiece == place.pieceName)
+                {
+                    counter = place;
+                    break;
+                }
+            }
+            if (counter == null)
+            {
+                return;
+            }
+            point.parent.createPieceOnSquare(typeOfPlacedPiece, turn);
+            clearAllPlacement();
+            if (turn == 1)
+            {
+                counter.countWhite -= 1;
+            }
+            else if (turn == -1)
+            {
+                counter.countBlack -= 1;
+            }
+            placementBack.SetActive(false);
+            switchTurn();
+        }
+    }
+
+    public void displaySamOnOverlayAtIndex(int index)
+    {
+        if (!settings["blind"]){
+            squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/move");
+        }
+        squares[index].overlay.GetComponent<overlay>().samSquare = true;
+    }
+
+    public void displayPlacementOverlayAtIndex(int index)
+    {
+        squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/move");
+        squares[index].overlay.GetComponent<overlay>().placementSquare = true;
+    }
+
+    public void clearPlacementOverlayAtIndex(int index)
+    {
+        squares[index].overlay.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/blank");
+        squares[index].overlay.GetComponent<overlay>().placementSquare = false;
     }
 
     public void ClearOverlayAtIndex(int index)
@@ -547,6 +995,7 @@ public class board : MonoBehaviour
         squares[index].overlay.GetComponent<overlay>().moveSq = false;
         squares[index].overlay.GetComponent<overlay>().captureSq = false;
         squares[index].overlay.GetComponent<overlay>().duckSquare = false;
+        squares[index].overlay.GetComponent<overlay>().samSquare = false;
     }
     public void ClearDuckOverlays()
     {
@@ -554,6 +1003,18 @@ public class board : MonoBehaviour
         foreach (square sq in squares)
         {
             if (sq.overlay.GetComponent<SpriteRenderer>().sprite == duckOvers)
+            {
+                ClearOverlayAtIndex(sq.rank*8 + sq.file);
+            }
+        }
+    }
+
+    public void ClearSamOverlays()
+    {
+        Sprite duckOvers = Resources.Load<Sprite>("Pieces/move");
+        foreach (square sq in squares)
+        {
+            if (sq.overlay.GetComponent<SpriteRenderer>().sprite == duckOvers && sq.overlay.GetComponent<overlay>().samSquare)
             {
                 ClearOverlayAtIndex(sq.rank*8 + sq.file);
             }

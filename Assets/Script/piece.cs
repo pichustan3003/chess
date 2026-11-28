@@ -15,7 +15,7 @@ public class piece : MonoBehaviour
     bool moved = false;
     public void show()
     {
-        gameObject.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Pieces/"+pieceType+color.ToString());
+        gameObject.GetComponent<SpriteRenderer>().sprite = !location.parent.settings["blind"] ? Resources.Load<Sprite>("Pieces/"+pieceType+color.ToString()) : Resources.Load<Sprite>("Pieces/Question"+color.ToString());
         location.piece = this;
     }
     public List<int> returnIndexOfTheoreticalMoves()
@@ -198,6 +198,13 @@ public class piece : MonoBehaviour
         }
 
         else if (pieceType == "Duck")
+        {
+            for (int i = 0; i < 64; i++)
+            {
+                if (!board.isOccupied(i)) moves.Add(i);
+            }
+        }
+        else if (pieceType == "Sam")
         {
             for (int i = 0; i < 64; i++)
             {
@@ -438,6 +445,32 @@ public class piece : MonoBehaviour
                 parentBoard.lastMoved == enPassantCaptured)
             {
                 enPassantCapturedSquare.piece = null;
+                if (location.parent.settings["crazyhouse"])
+                {
+                    string capturedPieceType = pieceType;
+                    int capturedPieceColor = color;
+                    placeableOption pocketOption = null;
+                    foreach (placeableOption obj in location.parent.placementBack.GetComponentsInChildren<placeableOption>(true))
+                    {
+                        if (obj.gameObject.name == capturedPieceType)
+                        {
+                            pocketOption = obj;
+                            break;
+                        }
+                    }
+                    if (pocketOption == null)
+                    {
+                        Debug.LogWarning($"No Crazyhouse pocket option found for captured piece '{capturedPieceType}'.", location.parent.placementBack);
+                    }
+                    else if (capturedPieceColor == 1)
+                    {
+                        pocketOption.countWhite += 1;
+                    }
+                    else if (capturedPieceColor == -1)
+                    {
+                        pocketOption.countBlack += 1;
+                    }
+                }
                 DestroyImmediate(enPassantCaptured.gameObject);
             }
             else
